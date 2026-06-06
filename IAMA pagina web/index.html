@@ -1,0 +1,1217 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>I.A.ma · Reportes Ejecutivos con IA</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<meta name="description" content="Genera reportes ejecutivos con IA desde tus datos de negocio. Resumen, hallazgos, riesgos y recomendaciones a la medida de tu industria.">
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/docx/8.5.0/docx.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pptxgenjs/3.12.0/pptxgen.bundle.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+<style>
+:root{
+  /* Identidad I.A.ma */
+  --bg:#ffffff; --panel:#FAF7F2; --cream:#F3EAD3; --ink:#2A2222;
+  --muted:#8a7d7d; --line:#e8e0d4;
+  --wine:#6E1423;        /* rojo vino — principal */
+  --wine-d:#5a0f1c;      /* vino oscuro hover */
+  --garnet:#9E2B3F;      /* granate — acento */
+  --rose:#C97A86;        /* rosa palo — acento secundario */
+  --marfil:#FAF7F2;
+  /* Semánticos para indicadores */
+  --green:#3f7a5f; --green-d:#2b5642; --green-l:#a9c9ba;
+  --red:#9E2B3F; --amber:#b07d2a; --gold:#b8860b;
+  --radius:14px; --shadow:0 1px 3px rgba(110,20,35,.05),0 8px 28px rgba(110,20,35,.06);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Inter","Helvetica Neue",Helvetica,Arial,sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;}
+.wrap{max-width:1080px;margin:0 auto;padding:48px 28px 96px}
+header.top{text-align:center;margin-bottom:40px}
+header.top h1{font-size:30px;font-weight:600;letter-spacing:-.02em}
+header.top p{color:var(--muted);font-size:15px;margin-top:8px}
+.badge{display:inline-block;background:var(--green-d);color:var(--cream);font-size:11px;
+  letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:20px;margin-bottom:18px}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);
+  padding:28px;margin-bottom:22px;box-shadow:var(--shadow)}
+.card h2{font-size:18px;font-weight:600;margin-bottom:6px;letter-spacing:-.01em}
+.card .sub{color:var(--muted);font-size:13px;margin-bottom:18px}
+
+.drop{border:2px dashed var(--line);border-radius:var(--radius);padding:44px 20px;text-align:center;
+  transition:.2s;cursor:pointer;background:var(--bg)}
+.drop:hover,.drop.over{border-color:var(--rose);background:#fdf6f7}
+.drop .ic{font-size:40px;margin-bottom:10px}
+.drop .big{font-weight:500;font-size:15px}
+.drop .small{color:var(--muted);font-size:13px;margin-top:4px}
+input[type=file]{display:none}
+
+label.field{display:block;font-size:13px;font-weight:500;margin:14px 0 6px}
+input[type=text],select,textarea{width:100%;padding:10px 12px;border:1px solid var(--line);
+  border-radius:9px;font-size:14px;font-family:inherit;background:var(--bg);color:var(--ink)}
+textarea{resize:vertical;min-height:60px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:680px){.grid2,.grid3{grid-template-columns:1fr}}
+
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--wine);color:#fff;border:none;
+  padding:12px 22px;border-radius:10px;font-size:14px;font-weight:500;cursor:pointer;transition:.15s}
+.btn:hover{background:var(--wine-d)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.btn.sec{background:var(--bg);color:var(--ink);border:1px solid var(--line)}
+.btn.sec:hover{background:var(--cream)}
+.btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+
+table.cfg{width:100%;border-collapse:collapse;font-size:13px;margin-top:10px}
+table.cfg th{text-align:left;color:var(--muted);font-weight:500;padding:8px 6px;border-bottom:1px solid var(--line);font-size:12px}
+table.cfg td{padding:6px;border-bottom:1px solid var(--line)}
+table.cfg select,table.cfg input{padding:6px 8px;font-size:13px}
+table.cfg input.num{width:80px}
+
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:14px;margin-top:8px}
+.kpi{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:16px}
+.kpi .name{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.kpi .val{font-size:24px;font-weight:600;margin:4px 0;letter-spacing:-.02em}
+.kpi .delta{font-size:13px;font-weight:500;display:inline-flex;align-items:center;gap:4px;
+  padding:2px 8px;border-radius:6px}
+.delta.up{color:var(--green);background:#e8f5f0}
+.delta.down{color:var(--red);background:#fdeceb}
+.delta.flat{color:var(--muted);background:var(--cream)}
+
+.narr h3{font-size:15px;font-weight:600;margin:18px 0 8px;color:var(--wine)}
+.narr p{font-size:14px;margin-bottom:8px}
+.narr ul{margin:0 0 8px 20px}
+.narr li{font-size:14px;margin-bottom:5px}
+.tag{display:inline-block;font-size:11px;padding:2px 8px;border-radius:6px;margin-right:6px;font-weight:500}
+.tag.r{background:#fdeceb;color:var(--red)}
+.tag.a{background:#fef5e7;color:var(--amber)}
+.tag.g{background:#e8f5f0;color:var(--green)}
+
+.hidden{display:none}
+.filters-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.fdrop{position:relative}
+.fdrop .flabel{font-size:12px;font-weight:600;margin-bottom:4px;display:block}
+.fdrop .ftrigger{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;
+  background:var(--bg);font-size:13px;cursor:pointer;display:flex;justify-content:space-between;
+  align-items:center;gap:8px;text-align:left}
+.fdrop .ftrigger:hover{border-color:var(--rose)}
+.fdrop .ftrigger .ftxt{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--ink)}
+.fdrop .ftrigger .fcaret{color:var(--muted);font-size:10px;flex-shrink:0}
+.fdrop .fmenu{position:absolute;z-index:30;top:100%;left:0;right:0;margin-top:4px;background:var(--bg);
+  border:1px solid var(--line);border-radius:9px;box-shadow:var(--shadow);max-height:240px;
+  overflow-y:auto;padding:6px;display:none}
+.fdrop.open .fmenu{display:block}
+.fdrop .fopt{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;
+  font-size:13px;cursor:pointer}
+.fdrop .fopt:hover{background:var(--cream)}
+.fdrop .fopt input{width:auto;margin:0}
+.fdrop .fmenuhead{display:flex;justify-content:space-between;padding:4px 8px 6px;
+  border-bottom:1px solid var(--line);margin-bottom:4px}
+.fdrop .fmenuhead button{background:none;border:none;color:var(--wine);font-size:12px;cursor:pointer}
+.chartbox{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:18px;margin-top:14px;height:300px}
+.aibadge{font-size:13px;padding:10px 14px;border-radius:9px;margin-bottom:14px;display:flex;align-items:center;gap:8px}
+.aibadge.working{background:#eef4fb;color:#2c5d8f;border:1px solid #d4e3f2}
+.aibadge.ok{background:#e8f5f0;color:var(--green-d);border:1px solid var(--green-l)}
+.aibadge.err{background:#fef5e7;color:var(--amber);border:1px solid #f5d99a}
+.srctag{display:inline-block;font-size:11px;font-weight:600;padding:3px 10px;border-radius:14px;margin-bottom:6px}
+.srctag.ai{background:linear-gradient(90deg,var(--wine),var(--garnet));color:#fff}
+.srctag.rule{background:var(--cream);color:var(--muted)}
+.footnote{font-size:12px;color:var(--muted);text-align:center;margin-top:30px}
+.steps{display:flex;gap:8px;justify-content:center;margin-bottom:30px;flex-wrap:wrap}
+.step{font-size:12px;color:var(--muted);padding:6px 14px;border-radius:20px;background:var(--cream)}
+.step.active{background:var(--wine);color:#fff}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;
+  border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+/* ===== Navbar marketplace ===== */
+.nav{position:sticky;top:0;z-index:50;background:rgba(255,255,255,.82);backdrop-filter:saturate(180%) blur(16px);
+  border-bottom:1px solid var(--line)}
+.nav-inner{max-width:1080px;margin:0 auto;padding:12px 28px;display:flex;align-items:center;justify-content:space-between;gap:16px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand svg{height:34px;width:auto;display:block}
+.brand .tagline{font-size:12px;color:var(--muted);border-left:1px solid var(--line);padding-left:12px;line-height:1.3}
+@media(max-width:680px){.brand .tagline{display:none}}
+.nav-actions{display:flex;align-items:center;gap:14px}
+.usage{font-size:13px;color:var(--muted);display:flex;align-items:center;gap:6px}
+.usage b{color:var(--wine);font-weight:600}
+.plan-pill{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;
+  padding:3px 10px;border-radius:20px;background:var(--cream);color:var(--wine)}
+.plan-pill.pro{background:var(--wine);color:#fff}
+
+/* ===== Hero ===== */
+.hero{text-align:center;padding:10px 0 6px}
+.hero .eyebrow{display:inline-block;background:var(--cream);color:var(--wine);font-size:11px;font-weight:600;
+  letter-spacing:.1em;text-transform:uppercase;padding:5px 14px;border-radius:20px;margin-bottom:16px}
+.hero h1{font-size:34px;font-weight:600;letter-spacing:-.03em;line-height:1.1}
+.hero h1 .accent{color:var(--wine)}
+.hero p{color:var(--muted);font-size:16px;margin-top:12px;max-width:560px;margin-left:auto;margin-right:auto}
+.beta-note{font-size:12px;color:var(--muted);background:var(--cream);display:inline-block;
+  padding:6px 14px;border-radius:8px;margin-top:16px}
+
+/* ===== Planes / marketplace ===== */
+.plans{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:8px}
+@media(max-width:780px){.plans{grid-template-columns:1fr}}
+.plan{border:1px solid var(--line);border-radius:16px;padding:26px 24px;background:var(--bg);
+  display:flex;flex-direction:column;position:relative;transition:.2s}
+.plan:hover{box-shadow:var(--shadow);transform:translateY(-2px)}
+.plan.featured{border-color:var(--wine);border-width:2px}
+.plan .ptag{position:absolute;top:-11px;left:50%;transform:translateX(-50%);background:var(--wine);color:#fff;
+  font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;padding:4px 12px;border-radius:20px}
+.plan .pname{font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.plan .pprice{font-size:32px;font-weight:600;letter-spacing:-.02em;margin:8px 0 2px}
+.plan .pprice small{font-size:14px;color:var(--muted);font-weight:400}
+.plan .pdesc{font-size:13px;color:var(--muted);margin-bottom:16px}
+.plan ul{list-style:none;margin:0 0 22px;padding:0;flex:1}
+.plan li{font-size:13.5px;padding:7px 0;display:flex;gap:9px;align-items:flex-start;border-bottom:1px solid var(--line)}
+.plan li:last-child{border-bottom:none}
+.plan li .ck{color:var(--wine);flex-shrink:0;font-weight:700}
+.plan .btn{width:100%;justify-content:center}
+
+/* ===== Modal upgrade ===== */
+.modal-bg{position:fixed;inset:0;background:rgba(42,34,34,.55);backdrop-filter:blur(4px);
+  display:none;align-items:center;justify-content:center;z-index:100;padding:20px}
+.modal-bg.open{display:flex}
+.modal{background:var(--bg);border-radius:20px;max-width:440px;width:100%;padding:34px 32px;
+  box-shadow:0 20px 60px rgba(42,34,34,.3);text-align:center;animation:pop .25s ease}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:scale(1);opacity:1}}
+.modal .mlogo{height:38px;margin-bottom:18px}
+.modal h3{font-size:22px;font-weight:600;letter-spacing:-.02em;margin-bottom:8px}
+.modal p{font-size:14.5px;color:var(--muted);margin-bottom:6px}
+.modal .price-big{font-size:34px;font-weight:600;color:var(--wine);margin:14px 0 2px;letter-spacing:-.02em}
+.modal .price-big small{font-size:14px;color:var(--muted);font-weight:400}
+.modal .mfeat{font-size:13px;color:var(--ink);background:var(--cream);border-radius:10px;padding:12px 16px;margin:16px 0;text-align:left}
+.modal .mfeat div{padding:3px 0;display:flex;gap:8px}
+.modal .mbtns{display:flex;flex-direction:column;gap:10px;margin-top:18px}
+.modal .mclose{background:none;border:none;color:var(--muted);font-size:13px;cursor:pointer;margin-top:4px}
+.modal .dev-banner{font-size:11.5px;color:var(--amber);background:#fef5e7;border:1px solid #f5d99a;
+  border-radius:8px;padding:8px 12px;margin-top:14px}
+
+footer.site{border-top:1px solid var(--line);margin-top:40px;padding:28px;text-align:center;color:var(--muted);font-size:12.5px}
+footer.site .fbrand{font-weight:600;color:var(--wine)}
+</style>
+</head>
+<body>
+
+<!-- ===== NAVBAR MARKETPLACE ===== -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="brand">
+      <svg viewBox="212 33 235 155" xmlns="http://www.w3.org/2000/svg" aria-label="I.A.ma">
+        <text x="222" y="172" font-family="Inter, Helvetica, Arial, sans-serif" font-weight="600" font-size="104" fill="#6E1423" letter-spacing="-3">I.A.</text>
+        <text x="366" y="122" font-family="Inter, Helvetica, Arial, sans-serif" font-weight="400" font-size="48" fill="#6E1423" letter-spacing="-1">ma</text>
+        <path d="M404 86 C391 74 404 62 400 49 C412 58 415 70 410 80 C416 75 416 69 414 66 C423 77 420 89 408 93 C404 94 405 89 404 86 Z" fill="#6E1423"/>
+        <path d="M407 87 C399 79 407 70 405 61 C413 68 415 77 410 84 C415 80 415 76 413 74 C419 81 416 89 409 91 C406 92 407 89 407 87 Z" fill="#9E2B3F"/>
+      </svg>
+      <span class="tagline">Business Intelligence<br>& Analítica Estratégica</span>
+    </div>
+    <div class="nav-actions">
+      <div class="usage">
+        <span class="plan-pill" id="planPill">Free</span>
+        <span>Reportes: <b id="usageCount">0</b><span id="usageMax">/3</span></span>
+      </div>
+      <button class="btn sec" id="navUpgrade" style="padding:8px 16px">Ver planes</button>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+  <header class="hero">
+    <div class="eyebrow">Beta · Datos que encienden decisiones</div>
+    <h1>Reportes ejecutivos <span class="accent">con IA</span>,<br>en minutos no en horas</h1>
+    <p>Carga tu Excel o CSV y obtén resumen ejecutivo, hallazgos, riesgos y recomendaciones — redactados a la medida de tu industria y listos para dirección.</p>
+    <div class="beta-note">🧪 Versión beta · 3 reportes gratuitos para probar la herramienta</div>
+  </header>
+
+  <div class="steps">
+    <div class="step active" id="s1">1 · Cargar datos</div>
+    <div class="step" id="s2">2 · Configurar KPIs</div>
+    <div class="step" id="s3">3 · Reporte</div>
+    <div class="step" id="s4">4 · Exportar</div>
+  </div>
+
+  <!-- PASO 1 -->
+  <div class="card" id="card-upload">
+    <h2>1. Cargar archivo</h2>
+    <p class="sub">Excel (.xlsx, .xls) o CSV. Cada fila = un período; cada columna numérica = un indicador.</p>
+    <div class="drop" id="drop">
+      <div class="ic">📊</div>
+      <div class="big">Arrastra tu archivo o haz clic</div>
+      <div class="small">.xlsx · .xls · .csv</div>
+    </div>
+    <input type="file" id="file" accept=".xlsx,.xls,.csv">
+    <div id="sheetSel" class="hidden">
+      <label class="field">Hoja</label>
+      <select id="sheet"></select>
+    </div>
+  </div>
+
+  <!-- PASO 2 -->
+  <div class="card hidden" id="card-config">
+    <h2>2. Configurar análisis</h2>
+    <p class="sub">Define qué columna es el período y cómo evaluar cada indicador.</p>
+    <div class="grid3">
+      <div>
+        <label class="field">Columna de período (fecha)</label>
+        <select id="periodCol"></select>
+      </div>
+      <div>
+        <label class="field">Agrupar por</label>
+        <select id="granularity">
+          <option value="week">Semana</option>
+          <option value="month" selected>Mes</option>
+          <option value="year">Año</option>
+        </select>
+      </div>
+      <div>
+        <label class="field">&nbsp;</label>
+        <div style="font-size:12px;color:var(--muted);padding-top:10px" id="grpInfo"></div>
+      </div>
+    </div>
+    <div class="grid2">
+      <div>
+        <label class="field">Período a analizar (actual)</label>
+        <select id="curPeriodSel"></select>
+      </div>
+      <div>
+        <label class="field">Comparar contra (base)</label>
+        <select id="basePeriodSel"></select>
+      </div>
+    </div>
+    <div class="grid2">
+      <div>
+        <label class="field">Título del reporte</label>
+        <input type="text" id="title" value="Reporte Ejecutivo">
+      </div>
+      <div>
+        <label class="field">Cliente / Área</label>
+        <input type="text" id="client" value="Dirección General">
+      </div>
+    </div>
+    <label class="field">Indicadores a analizar</label>
+    <p class="sub" style="margin-bottom:8px">Se listan todas las columnas. Marca las que quieras analizar. Las columnas de texto se muestran atenuadas (no analizables).</p>
+    <table class="cfg" id="kpiCfg">
+      <thead><tr><th>Incluir</th><th>Indicador</th><th>Sentido positivo</th><th>Al agrupar</th><th>Umbral alerta (% var.)</th><th>Formato</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <div id="filterSection" class="hidden">
+      <label class="field">Filtrar datos (columnas de texto)</label>
+      <p class="sub" style="margin-bottom:8px">Limita el análisis a ciertos valores (ej. una ruta o estación). Si no marcas nada en una columna, se incluyen todos sus valores. Los períodos y KPIs se recalculan automáticamente.</p>
+      <div id="filters" class="filters-grid"></div>
+    </div>
+
+    <div class="btnrow" style="align-items:center">
+      <button class="btn" id="genBtn">Generar reporte →</button>
+      <label style="display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer;margin-left:6px">
+        <input type="checkbox" id="useAI" checked style="width:auto">
+        <span>✨ Enriquecer con IA (detecta industria y redacta a la medida)</span>
+      </label>
+    </div>
+  </div>
+
+  <!-- PASO 3 -->
+  <div class="card hidden" id="card-report">
+    <h2 id="rTitle">Reporte</h2>
+    <p class="sub" id="rMeta"></p>
+    <div id="aiStatus" class="aibadge" style="display:none"></div>
+    <div class="kpis" id="kpiCards"></div>
+    <div class="chartbox"><canvas id="chart"></canvas></div>
+    <div class="narr" id="narrative"></div>
+  </div>
+
+  <!-- PASO 4 -->
+  <div class="card hidden" id="card-export">
+    <h2>4. Exportar</h2>
+    <p class="sub">Descarga el reporte en el formato que necesites para dirección.</p>
+    <div class="btnrow">
+      <button class="btn" id="exWord">📄 Word (.docx)</button>
+      <button class="btn" id="exPpt">📽️ PowerPoint (.pptx)</button>
+      <button class="btn" id="exPdf">📕 PDF</button>
+      <button class="btn sec" id="exTex">📐 LaTeX (.tex)</button>
+    </div>
+    <p class="footnote">Elaborado con motor de reglas determinista · Información confidencial</p>
+  </div>
+
+  <p class="footnote">Tus datos se procesan en tu navegador; solo el resumen calculado viaja a la IA para redactar. Información tratada de forma confidencial.</p>
+
+  <!-- ===== MARKETPLACE / PLANES ===== -->
+  <section id="planes" style="margin-top:50px">
+    <div class="hero" style="padding-bottom:24px">
+      <div class="eyebrow">Planes</div>
+      <h1 style="font-size:28px">Elige cómo trabajar</h1>
+      <p>Empieza gratis. Escala cuando lo necesites.</p>
+    </div>
+    <div class="plans">
+      <div class="plan">
+        <div class="pname">Free</div>
+        <div class="pprice">$0 <small>/ siempre</small></div>
+        <div class="pdesc">Para probar la herramienta.</div>
+        <ul>
+          <li><span class="ck">✓</span> 3 reportes completos en total</li>
+          <li><span class="ck">✓</span> Análisis con IA por industria</li>
+          <li><span class="ck">✓</span> Exporta Word, PPTX, PDF y LaTeX</li>
+          <li><span class="ck">✓</span> Filtros y agrupación por período</li>
+        </ul>
+        <button class="btn sec" disabled>Tu plan actual</button>
+      </div>
+      <div class="plan featured">
+        <div class="ptag">Recomendado</div>
+        <div class="pname">Pro</div>
+        <div class="pprice">$499 <small>MXN / mes</small></div>
+        <div class="pdesc">Para uso profesional recurrente.</div>
+        <ul>
+          <li><span class="ck">✓</span> 7 análisis completos por mes</li>
+          <li><span class="ck">✓</span> Todo lo del plan Free</li>
+          <li><span class="ck">✓</span> Reportes con tu marca</li>
+          <li><span class="ck">✓</span> Soporte prioritario</li>
+        </ul>
+        <button class="btn" data-buy="pro">Contratar Pro</button>
+      </div>
+      <div class="plan">
+        <div class="pname">Empresarial</div>
+        <div class="pprice">A definir</div>
+        <div class="pdesc">Equipos y volúmenes mayores.</div>
+        <ul>
+          <li><span class="ck">✓</span> Análisis ilimitados o por volumen</li>
+          <li><span class="ck">✓</span> Múltiples usuarios</li>
+          <li><span class="ck">✓</span> Integraciones a la medida</li>
+          <li><span class="ck">✓</span> Acompañamiento estratégico</li>
+        </ul>
+        <button class="btn sec" data-buy="ent">Contactar</button>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer class="site">
+  <span class="fbrand">I.A.ma</span> · Israel Alberto Miranda Aké · Business Intelligence &amp; Analítica Estratégica<br>
+  © 2026 · Versión beta. Información confidencial.
+</footer>
+
+<!-- ===== MODAL UPGRADE ===== -->
+<div class="modal-bg" id="upgradeModal">
+  <div class="modal">
+    <svg class="mlogo" viewBox="212 33 235 155" xmlns="http://www.w3.org/2000/svg">
+      <text x="222" y="172" font-family="Inter, Helvetica, Arial, sans-serif" font-weight="600" font-size="104" fill="#6E1423" letter-spacing="-3">I.A.</text>
+      <text x="366" y="122" font-family="Inter, Helvetica, Arial, sans-serif" font-weight="400" font-size="48" fill="#6E1423" letter-spacing="-1">ma</text>
+      <path d="M404 86 C391 74 404 62 400 49 C412 58 415 70 410 80 C416 75 416 69 414 66 C423 77 420 89 408 93 C404 94 405 89 404 86 Z" fill="#6E1423"/>
+      <path d="M407 87 C399 79 407 70 405 61 C413 68 415 77 410 84 C415 80 415 76 413 74 C419 81 416 89 409 91 C406 92 407 89 407 87 Z" fill="#9E2B3F"/>
+    </svg>
+    <h3 id="modalTitle">Has usado tus 3 reportes gratuitos</h3>
+    <p id="modalSub">Contrata el plan Pro para seguir generando análisis ejecutivos.</p>
+    <div class="price-big">$499 <small>MXN / mes</small></div>
+    <div class="mfeat">
+      <div><span class="ck" style="color:var(--wine);font-weight:700">✓</span> 7 análisis completos por mes</div>
+      <div><span class="ck" style="color:var(--wine);font-weight:700">✓</span> Exportación a Word, PPTX, PDF y LaTeX</div>
+      <div><span class="ck" style="color:var(--wine);font-weight:700">✓</span> Reportes con tu marca y soporte prioritario</div>
+    </div>
+    <div class="mbtns">
+      <button class="btn" id="modalBuy">Contratar plan Pro</button>
+      <button class="mclose" id="modalClose">Quizá más tarde</button>
+    </div>
+    <div class="dev-banner">⚙️ Estamos en fase beta: los pagos aún no están habilitados. Pronto podrás contratar en línea.</div>
+  </div>
+</div>
+
+<script>
+const $=s=>document.querySelector(s);
+let RAW=[], HEADERS=[], WB=null, REPORT=null, CHART=null;
+
+/* ===== PLANES Y LÍMITES DE USO =====
+   Nota beta: el conteo se guarda en este dispositivo (localStorage). No es una
+   barrera de seguridad real — eso vendrá con las cuentas de usuario y el motor de
+   pagos. Por ahora sirve para validar el flujo del producto y la experiencia. */
+const PLANS={
+  free:{name:'Free', limit:3,  period:'total'},
+  pro: {name:'Pro',  limit:7,  period:'mes'}
+};
+let CURRENT_PLAN='free';                 // en el futuro vendrá del backend tras login/pago
+const USAGE_KEY='iama_usage_v1';
+
+function loadUsage(){
+  try{return JSON.parse(localStorage.getItem(USAGE_KEY))||{count:0,month:currentMonth(),plan:'free'};}
+  catch(_){return {count:0,month:currentMonth(),plan:'free'};}
+}
+function saveUsage(u){try{localStorage.setItem(USAGE_KEY,JSON.stringify(u));}catch(_){}}
+function currentMonth(){const d=new Date();return d.getFullYear()+'-'+(d.getMonth()+1);}
+
+function getUsage(){
+  const u=loadUsage();
+  CURRENT_PLAN=u.plan||'free';
+  // el plan Pro se reinicia cada mes; el Free es acumulado total
+  if(CURRENT_PLAN==='pro' && u.month!==currentMonth()){u.count=0;u.month=currentMonth();saveUsage(u);}
+  return u;
+}
+function refreshUsageUI(){
+  const u=getUsage();
+  const p=PLANS[CURRENT_PLAN];
+  $('#usageCount').textContent=u.count;
+  $('#usageMax').textContent='/'+p.limit;
+  const pill=$('#planPill');
+  pill.textContent=p.name;
+  pill.className='plan-pill'+(CURRENT_PLAN==='pro'?' pro':'');
+}
+function canGenerate(){
+  const u=getUsage();
+  return u.count < PLANS[CURRENT_PLAN].limit;
+}
+function recordGeneration(){
+  const u=getUsage();
+  u.count++;
+  saveUsage(u);
+  refreshUsageUI();
+}
+function openUpgrade(){
+  const u=getUsage();
+  if(CURRENT_PLAN==='free'){
+    $('#modalTitle').textContent='Has usado tus '+PLANS.free.limit+' reportes gratuitos';
+    $('#modalSub').textContent='Contrata el plan Pro para seguir generando análisis ejecutivos.';
+  }else{
+    $('#modalTitle').textContent='Alcanzaste tu límite mensual';
+    $('#modalSub').textContent='Tu plan Pro permite '+PLANS.pro.limit+' análisis por mes. Escala a un plan mayor o espera al próximo ciclo.';
+  }
+  $('#upgradeModal').classList.add('open');
+}
+function closeUpgrade(){$('#upgradeModal').classList.remove('open');}
+
+
+const FMT={
+  number:v=>new Intl.NumberFormat('es-MX').format(Math.round(v)),
+  money:v=>new Intl.NumberFormat('es-MX',{style:'currency',currency:'MXN',maximumFractionDigits:0}).format(v),
+  pct:v=>new Intl.NumberFormat('es-MX',{maximumFractionDigits:1}).format(v)+'%',
+  decimal:v=>new Intl.NumberFormat('es-MX',{maximumFractionDigits:2}).format(v)
+};
+
+// ---------- CARGA ----------
+const drop=$('#drop'),fileIn=$('#file');
+drop.onclick=()=>fileIn.click();
+['dragover','dragenter'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.add('over')}));
+['dragleave','drop'].forEach(e=>drop.addEventListener(e,ev=>{ev.preventDefault();drop.classList.remove('over')}));
+drop.addEventListener('drop',ev=>{if(ev.dataTransfer.files[0])handleFile(ev.dataTransfer.files[0])});
+fileIn.onchange=e=>{if(e.target.files[0])handleFile(e.target.files[0])};
+
+function handleFile(f){
+  const r=new FileReader();
+  r.onload=ev=>{
+    WB=XLSX.read(ev.target.result,{type:'array',cellDates:true});
+    const sel=$('#sheet');sel.innerHTML='';
+    WB.SheetNames.forEach(n=>{const o=document.createElement('option');o.value=o.textContent=n;sel.appendChild(o)});
+    $('#sheetSel').classList.remove('hidden');
+    sel.onchange=()=>loadSheet(sel.value);
+    loadSheet(WB.SheetNames[0]);
+    drop.querySelector('.big').textContent='✓ '+f.name;
+  };
+  r.readAsArrayBuffer(f);
+}
+
+function loadSheet(name){
+  const ws=WB.Sheets[name];
+  RAW=XLSX.utils.sheet_to_json(ws,{defval:null,raw:true});
+  if(!RAW.length){alert('La hoja está vacía');return}
+  HEADERS=Object.keys(RAW[0]);
+  buildConfig();
+  $('#card-config').classList.remove('hidden');
+  setStep(2);
+  $('#card-config').scrollIntoView({behavior:'smooth'});
+}
+
+function isNumericCol(h){
+  let n=0,t=0;
+  RAW.forEach(r=>{if(r[h]!=null){t++;if(typeof r[h]==='number'||(!isNaN(parseFloat(r[h]))&&isFinite(r[h])))n++}});
+  return t>0 && n/t>0.6;
+}
+
+// ¿La mayoría de los valores se interpretan como fecha?
+function isDateCol(h){
+  let n=0,t=0;
+  RAW.slice(0,40).forEach(r=>{if(r[h]!=null){t++;
+    const v=r[h];
+    if(v instanceof Date){n++;return}
+    if(typeof v==='string' && !isNaN(new Date(v))){n++;return}
+  }});
+  return t>0 && n/t>0.6;
+}
+
+function buildConfig(){
+  // poblar selector de columna de período (una sola vez por carga de hoja)
+  const pc=$('#periodCol');
+  const prevCol=pc.value;
+  pc.innerHTML='';
+  HEADERS.forEach(h=>{const o=document.createElement('option');o.value=o.textContent=h;pc.appendChild(o)});
+  // mantener selección previa si sigue existiendo; si no, autodetectar columna de fecha
+  if(prevCol&&HEADERS.includes(prevCol)) pc.value=prevCol;
+  else pc.value=HEADERS.find(h=>isDateCol(h))||HEADERS.find(h=>!isNumericCol(h))||HEADERS[0];
+  // registrar handler solo una vez
+  pc.onchange=onPeriodColChange;
+  $('#granularity').onchange=()=>{rebuildGroups();};
+  onPeriodColChange();
+}
+
+// Cuando cambia la columna de período o la granularidad: reagrupar
+function onPeriodColChange(){
+  const periodCol=$('#periodCol').value;
+  buildFilters(periodCol);
+  rebuildGroups();
+  buildKpiTable(periodCol);
+}
+
+// Convierte cualquier valor a objeto Date (soporta Date, serial Excel, o texto)
+function toDate(v){
+  if(v instanceof Date) return v;
+  if(typeof v==='number'){ // serial Excel
+    const d=XLSX.SSF?.parse_date_code?.(v);
+    if(d) return new Date(d.y,d.m-1,d.d);
+    return new Date(Math.round((v-25569)*86400*1000));
+  }
+  const d=new Date(v);
+  return isNaN(d)?null:d;
+}
+
+// ISO week number
+function isoWeek(d){
+  const t=new Date(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate()));
+  const day=t.getUTCDay()||7;
+  t.setUTCDate(t.getUTCDate()+4-day);
+  const yStart=new Date(Date.UTC(t.getUTCFullYear(),0,1));
+  return {week:Math.ceil(((t-yStart)/86400000+1)/7), year:t.getUTCFullYear()};
+}
+
+// Clave + etiqueta de grupo según granularidad
+function groupKey(d,gran){
+  if(gran==='year') return {key:String(d.getFullYear()), label:String(d.getFullYear()), sort:d.getFullYear()*10000};
+  if(gran==='month'){
+    const m=d.getMonth();
+    const names=['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+    return {key:`${d.getFullYear()}-${String(m+1).padStart(2,'0')}`,
+            label:`${names[m]} ${d.getFullYear()}`, sort:d.getFullYear()*10000+(m+1)*100};
+  }
+  const w=isoWeek(d);
+  return {key:`${w.year}-W${String(w.week).padStart(2,'0')}`,
+          label:`Sem ${w.week}, ${w.year}`, sort:w.year*10000+w.week};
+}
+
+// ----- FILTROS por columnas de texto -----
+// FILTERS: { columna: Set(valoresSeleccionados) }  -- Set vacío = sin filtro (todos)
+let FILTERS={};
+function buildFilters(periodCol){
+  FILTERS={};
+  const cont=$('#filters');cont.innerHTML='';
+  const textCols=HEADERS.filter(h=>h!==periodCol && !isNumericCol(h) && !isDateCol(h));
+  if(!textCols.length){$('#filterSection').classList.add('hidden');return}
+  $('#filterSection').classList.remove('hidden');
+  textCols.forEach(col=>{
+    FILTERS[col]=new Set();
+    const vals=[...new Set(RAW.map(r=>r[col]).filter(v=>v!=null).map(String))].sort();
+    if(vals.length>200) return; // evitar columnas tipo ID con miles de valores únicos
+    const drop=document.createElement('div');drop.className='fdrop';
+    const opts=vals.map(v=>`<label class="fopt"><input type="checkbox" value="${escAttr(v)}"> ${escHtml(v)}</label>`).join('');
+    drop.innerHTML=`
+      <span class="flabel">${escHtml(col)}</span>
+      <div class="ftrigger"><span class="ftxt" data-txt="${escAttr(col)}">Todos (${vals.length})</span><span class="fcaret">▼</span></div>
+      <div class="fmenu">
+        <div class="fmenuhead"><button data-all>Seleccionar todos</button><button data-none>Limpiar</button></div>
+        ${opts}
+      </div>`;
+    const trigger=drop.querySelector('.ftrigger');
+    const menu=drop.querySelector('.fmenu');
+    trigger.onclick=e=>{e.stopPropagation();document.querySelectorAll('.fdrop.open').forEach(d=>{if(d!==drop)d.classList.remove('open')});drop.classList.toggle('open');};
+    menu.onclick=e=>e.stopPropagation();
+    const checks=[...menu.querySelectorAll('input')];
+    checks.forEach(cb=>cb.onchange=()=>{
+      if(cb.checked)FILTERS[col].add(cb.value); else FILTERS[col].delete(cb.value);
+      updateFilterLabel(col,vals.length);rebuildGroups();
+    });
+    menu.querySelector('[data-all]').onclick=()=>{FILTERS[col]=new Set(vals);checks.forEach(c=>c.checked=true);updateFilterLabel(col,vals.length);rebuildGroups();};
+    menu.querySelector('[data-none]').onclick=()=>{FILTERS[col].clear();checks.forEach(c=>c.checked=false);updateFilterLabel(col,vals.length);rebuildGroups();};
+    cont.appendChild(drop);
+  });
+}
+function updateFilterLabel(col,total){
+  const el=document.querySelector(`[data-txt="${CSS.escape(col)}"]`);if(!el)return;
+  const sel=[...FILTERS[col]];
+  if(!sel.length||sel.length===total){el.textContent=`Todos (${total})`;}
+  else if(sel.length<=2){el.textContent=sel.join(', ');}
+  else{el.textContent=`${sel.length} seleccionados`;}
+}
+function escHtml(s){return String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]))}
+function escAttr(s){return String(s).replace(/"/g,'&quot;').replace(/&/g,'&amp;')}
+// ¿La fila pasa todos los filtros activos?
+function passesFilters(r){
+  for(const col in FILTERS){
+    const set=FILTERS[col];
+    if(set.size && !set.has(String(r[col]))) return false;
+  }
+  return true;
+}
+
+// GROUPS: [{key,label,rows:[...originalRows]}], ordenados cronológicamente
+let GROUPS=[];
+function rebuildGroups(){
+  const periodCol=$('#periodCol').value;
+  const gran=$('#granularity').value;
+  const map=new Map();
+  let bad=0;
+  RAW.forEach(r=>{
+    if(r[periodCol]==null) return;
+    if(!passesFilters(r)) return;
+    const d=toDate(r[periodCol]);
+    if(!d){bad++;return}
+    const g=groupKey(d,gran);
+    if(!map.has(g.key)) map.set(g.key,{key:g.key,label:g.label,sort:g.sort,rows:[]});
+    map.get(g.key).rows.push(r);
+  });
+  GROUPS=[...map.values()].sort((a,b)=>a.sort-b.sort);
+  const unit=gran==='year'?'años':gran==='month'?'meses':'semanas';
+  const anyFilter=Object.values(FILTERS).some(s=>s.size);
+  $('#grpInfo').textContent=GROUPS.length
+    ? `${GROUPS.length} ${unit} detectados${anyFilter?' (filtrado)':''}`
+    : (bad?'No se pudieron interpretar fechas en esa columna':'Sin datos que cumplan el filtro');
+  populatePeriodPickers();
+}
+
+// Llenar los dos selectores con TODOS los grupos disponibles
+function populatePeriodPickers(){
+  const cur=$('#curPeriodSel'), base=$('#basePeriodSel');
+  const fill=sel=>{sel.innerHTML='';GROUPS.forEach((g,i)=>{
+    const op=document.createElement('option');op.value=i;op.textContent=g.label;sel.appendChild(op);});};
+  fill(cur);fill(base);
+  const n=GROUPS.length;
+  cur.value = n-1;
+  base.value = n>=2 ? n-2 : 0;
+}
+
+// Agrega un indicador dentro de un grupo según método (sum / avg)
+function aggregate(group,col,method){
+  const vals=group.rows.map(r=>num(r[col]));
+  if(!vals.length) return 0;
+  if(method==='avg') return vals.reduce((a,b)=>a+b,0)/vals.length;
+  return vals.reduce((a,b)=>a+b,0); // sum
+}
+
+function buildKpiTable(periodCol){
+  const tb=$('#kpiCfg tbody');tb.innerHTML='';
+  HEADERS.filter(h=>h!==periodCol).forEach(h=>{
+    const numeric=isNumericCol(h);
+    const tr=document.createElement('tr');
+    if(!numeric){
+      tr.style.opacity='.45';
+      tr.innerHTML=`
+        <td><input type="checkbox" disabled data-k="inc"></td>
+        <td>${h} <span class="tag a" style="margin-left:6px">texto</span></td>
+        <td colspan="4" style="color:var(--muted);font-size:12px">No analizable (columna no numérica)</td>`;
+      tr.dataset.col=h; tr.dataset.numeric='0';
+      tb.appendChild(tr); return;
+    }
+    const guess=/ingres|venta|monto|importe|revenue/i.test(h)?'money':
+                /%|porc|aprovech|ocup|tasa|margen|promedio|medio/i.test(h)?'pct':'number';
+    const defAgg=guess==='pct'?'avg':'sum'; // % se promedia, conteos/montos se suman
+    tr.innerHTML=`
+      <td><input type="checkbox" checked data-k="inc"></td>
+      <td><strong>${h}</strong></td>
+      <td><select data-k="dir"><option value="up">↑ Más es mejor</option><option value="down">↓ Menos es mejor</option></select></td>
+      <td><select data-k="agg">
+        <option value="sum"${defAgg==='sum'?' selected':''}>Sumar</option>
+        <option value="avg"${defAgg==='avg'?' selected':''}>Promediar</option>
+      </select></td>
+      <td><input type="number" class="num" value="10" data-k="thr"> %</td>
+      <td><select data-k="fmt">
+        <option value="number"${guess==='number'?' selected':''}>Número</option>
+        <option value="money"${guess==='money'?' selected':''}>Moneda $</option>
+        <option value="pct"${guess==='pct'?' selected':''}>Porcentaje %</option>
+        <option value="decimal">Decimal</option>
+      </select></td>`;
+    tr.dataset.col=h; tr.dataset.numeric='1';
+    tb.appendChild(tr);
+  });
+}
+
+// ---------- MOTOR DE REGLAS ----------
+$('#genBtn').onclick=generate;
+
+function generate(){
+  const periodCol=$('#periodCol').value;
+  const kpis=[...document.querySelectorAll('#kpiCfg tbody tr')]
+    .filter(tr=>tr.dataset.numeric==='1')
+    .map(tr=>({
+      col:tr.dataset.col,
+      inc:tr.querySelector('[data-k=inc]').checked,
+      dir:tr.querySelector('[data-k=dir]').value,
+      agg:tr.querySelector('[data-k=agg]').value,
+      thr:parseFloat(tr.querySelector('[data-k=thr]').value)||10,
+      fmt:tr.querySelector('[data-k=fmt]').value
+    })).filter(k=>k.inc);
+  if(!kpis.length){alert('Selecciona al menos un indicador');return}
+  if(GROUPS.length<2){alert('Se necesitan al menos 2 períodos para comparar. Revisa la columna de fecha o la granularidad.');return}
+
+  // Límite de plan: si ya no puede generar, mostrar modal y detener
+  if(!canGenerate()){ openUpgrade(); return; }
+
+  const periods=GROUPS.map(g=>g.label);
+  const curIdx=parseInt($('#curPeriodSel').value,10);
+  const baseIdx=parseInt($('#basePeriodSel').value,10);
+  if(curIdx===baseIdx){alert('El período a analizar y el de comparación deben ser distintos');return}
+
+  const cmpLabel=periods[baseIdx];
+
+  // resumen de filtros activos para mostrar en el reporte
+  const activeFilters=Object.entries(FILTERS)
+    .filter(([c,s])=>s.size)
+    .map(([c,s])=>`${c}: ${[...s].join(', ')}`);
+  const filterText=activeFilters.length?activeFilters.join(' · '):'Todos los datos';
+
+  const results=kpis.map(k=>{
+    const series=GROUPS.map(g=>aggregate(g,k.col,k.agg));
+    const cur=series[curIdx], base=series[baseIdx];
+    const abs=cur-base;
+    const pct=base!==0?(abs/Math.abs(base))*100:0;
+    const good=(k.dir==='up'&&abs>0)||(k.dir==='down'&&abs<0)||(abs===0);
+    const sev=Math.abs(pct)>=k.thr;
+    let status='ok';
+    if(abs!==0){
+      if(good) status=sev?'win':'ok';
+      else status=sev?'risk':'watch';
+    }
+    return {...k,series,cur,base,abs,pct,good,sev,status,
+      fmtCur:FMT[k.fmt](cur),fmtBase:FMT[k.fmt](base)};
+  });
+
+  const ruleNarr=buildNarrative(results,periods[curIdx],cmpLabel);
+  REPORT={title:$('#title').value,client:$('#client').value,
+    periodCol,periods,curPeriod:periods[curIdx],basePeriod:periods[baseIdx],
+    cmpLabel,filterText,gran:$('#granularity').value,
+    results,narrative:ruleNarr,ruleNarrative:ruleNarr,industry:null,aiUsed:false};
+
+  renderReport();
+  recordGeneration();   // cuenta este reporte contra el límite del plan
+
+  if($('#useAI').checked){
+    enrichWithAI();
+  }
+}
+
+// ---------- ENRIQUECIMIENTO CON IA ----------
+async function enrichWithAI(){
+  const R=REPORT;
+  const banner=$('#aiStatus');
+  banner.style.display='block';
+  banner.className='aibadge working';
+  banner.innerHTML='<span class="spin"></span> Analizando con IA y detectando industria…';
+
+  // Compactar los datos para el prompt
+  const granTxt={week:'semanal',month:'mensual',year:'anual'}[R.gran]||'';
+  const kpiLines=R.results.map(r=>
+    `- ${r.col}: actual ${r.fmtCur}, base ${r.fmtBase}, variación ${(r.pct>0?'+':'')+FMT.pct(r.pct)} (formato ${r.fmt}, sentido positivo ${r.dir==='up'?'subir':'bajar'}, estado ${r.status})`
+  ).join('\n');
+
+  const prompt=`Eres un analista de negocio senior y redactor ejecutivo. A partir de los datos calculados de un reporte, debes (1) inferir la industria/sector más probable, y (2) redactar una narrativa ejecutiva específica de esa industria, evitando frases genéricas.
+
+CONTEXTO DEL REPORTE
+Título: ${R.title}
+Cliente/Área: ${R.client}
+Granularidad: análisis ${granTxt}
+Período analizado: ${R.curPeriod} comparado contra ${R.basePeriod}
+Filtro aplicado: ${R.filterText}
+
+INDICADORES (comparación período actual vs base)
+${kpiLines}
+
+INSTRUCCIONES
+- Infiere la industria a partir de los nombres de indicadores y el contexto (ej. transporte ferroviario, retail, banca, manufactura, etc.).
+- Redacta en español, tono ejecutivo, dirigido a dirección general.
+- Sé concreto: cita cifras y porcentajes reales de los datos. No inventes datos que no estén.
+- Las recomendaciones y riesgos deben ser propios de la industria detectada y accionables.
+- LÍMITES para no exceder espacio: resumen máx. 4 frases; cada lista máx. 5 elementos; cada elemento máx. 2 frases. Sé conciso.
+- Responde ÚNICAMENTE con un objeto JSON válido y completo, sin markdown ni texto adicional, con esta forma exacta:
+{"industry":"...","resumen":"...","hallazgos":["..."],"variaciones":["..."],"riesgos":["..."],"recomendaciones":["..."]}`;
+
+  try{
+    const callAI=async()=>{
+      const resp=await fetch("/api/analyze",{
+        method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({prompt})
+      });
+      if(!resp.ok){
+        let msg='HTTP '+resp.status;
+        try{const j=await resp.json();if(j.error)msg=j.error;}catch(_){}
+        throw new Error(msg);
+      }
+      const data=await resp.json();
+      return {txt:(data.text||'').trim(),stop:data.stop_reason};
+    };
+
+    let {txt,stop}=await callAI();
+    // el servidor ya pide 4000 tokens; si aun así se corta, el parser tolerante lo repara
+    const ai=parseAIJson(txt);
+    if(!ai||!ai.resumen) throw new Error('formato inesperado');
+
+    REPORT.narrative={
+      resumen:ai.resumen,
+      hallazgos:asArr(ai.hallazgos,R.ruleNarrative.hallazgos),
+      variaciones:asArr(ai.variaciones,R.ruleNarrative.variaciones),
+      riesgos:asArr(ai.riesgos,R.ruleNarrative.riesgos),
+      recos:asArr(ai.recomendaciones,R.ruleNarrative.recos),
+      counts:R.ruleNarrative.counts
+    };
+    REPORT.industry=ai.industry||null;
+    REPORT.aiUsed=true;
+    renderNarrative();
+    banner.className='aibadge ok';
+    banner.innerHTML=`✨ Enriquecido con IA${ai.industry?` · Industria detectada: <strong>${escHtml(ai.industry)}</strong>`:''}`;
+  }catch(e){
+    banner.className='aibadge err';
+    banner.innerHTML='⚠️ No se pudo enriquecer con IA. Se muestra el análisis por reglas. <span style="opacity:.7">('+escHtml(e.message)+')</span>';
+  }
+}
+
+// Devuelve arr si tiene contenido, si no el fallback
+function asArr(arr,fallback){return Array.isArray(arr)&&arr.length?arr:fallback}
+
+// Parser tolerante: limpia fences, extrae el objeto, y repara JSON truncado
+function parseAIJson(raw){
+  let t=raw.replace(/```json/gi,'').replace(/```/g,'').trim();
+  // recortar a partir de la primera llave
+  const start=t.indexOf('{');
+  if(start>0) t=t.slice(start);
+  // intento directo
+  try{return JSON.parse(t)}catch(_){}
+  // reparación: si quedó truncado, balancear comillas/corchetes/llaves
+  try{return JSON.parse(repairJson(t))}catch(_){}
+  return null;
+}
+
+function repairJson(t){
+  // si termina dentro de una cadena abierta, cerrarla
+  let inStr=false, esc=false;
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(esc){esc=false;continue}
+    if(c==='\\'){esc=true;continue}
+    if(c==='"') inStr=!inStr;
+  }
+  if(inStr) t+='"';
+  // quitar coma colgante final
+  t=t.replace(/,\s*$/,'');
+  // balancear corchetes y llaves abiertos (cerrar en orden inverso de apertura)
+  const stack=[];
+  inStr=false; esc=false;
+  for(let i=0;i<t.length;i++){
+    const c=t[i];
+    if(esc){esc=false;continue}
+    if(c==='\\'){esc=true;continue}
+    if(c==='"'){inStr=!inStr;continue}
+    if(inStr)continue;
+    if(c==='{'||c==='[')stack.push(c);
+    else if(c==='}'||c===']')stack.pop();
+  }
+  while(stack.length){
+    const open=stack.pop();
+    t=t.replace(/,\s*$/,'');
+    t+= open==='{' ? '}' : ']';
+  }
+  return t;
+}
+
+function num(v){if(v==null)return 0;if(typeof v==='number')return v;const n=parseFloat(String(v).replace(/[^0-9.\-]/g,''));return isNaN(n)?0:n}
+function fmtPeriod(v){
+  if(v instanceof Date)return v.toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric'});
+  return String(v);
+}
+
+function buildNarrative(R,curP,cmpLabel){
+  const wins=R.filter(r=>r.status==='win');
+  const risks=R.filter(r=>r.status==='risk');
+  const watch=R.filter(r=>r.status==='watch');
+  const ok=R.filter(r=>r.status==='ok');
+  const arrow=p=>p>0?'+':'';
+  const line=r=>`${r.col}: ${r.fmtCur} (${arrow(r.pct)}${FMT.pct(r.pct)} vs ${cmpLabel})`;
+
+  // Resumen ejecutivo
+  let resumen=`En el período <strong>${curP}</strong> se analizaron ${R.length} indicadores frente al ${cmpLabel}. `;
+  if(risks.length) resumen+=`Se identificaron <strong>${risks.length} indicador(es) en riesgo</strong> que requieren atención de dirección. `;
+  if(wins.length) resumen+=`${wins.length} indicador(es) mostraron avances significativos. `;
+  if(!risks.length&&!wins.length) resumen+=`El desempeño se mantuvo estable, sin variaciones materiales por encima de los umbrales definidos. `;
+
+  // Hallazgos
+  const hallazgos=[];
+  wins.forEach(r=>hallazgos.push(`<span class="tag g">Avance</span>${line(r)} — superó el umbral de variación relevante.`));
+  risks.forEach(r=>hallazgos.push(`<span class="tag r">Riesgo</span>${line(r)} — movimiento desfavorable por encima del umbral.`));
+  watch.forEach(r=>hallazgos.push(`<span class="tag a">Vigilar</span>${line(r)} — variación desfavorable leve.`));
+  if(!hallazgos.length)ok.slice(0,3).forEach(r=>hallazgos.push(`<span class="tag g">Estable</span>${line(r)}.`));
+
+  // Variaciones (todas, ordenadas por magnitud)
+  const variaciones=[...R].sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct))
+    .map(r=>`${r.col} pasó de ${r.fmtBase} a ${r.fmtCur}, una variación de ${arrow(r.pct)}${FMT.pct(r.pct)}.`);
+
+  // Riesgos
+  const riesgos=[];
+  risks.forEach(r=>riesgos.push(`<strong>${r.col}</strong> presenta una caída de ${FMT.pct(Math.abs(r.pct))}, lo que compromete los objetivos del área si la tendencia persiste.`));
+  watch.forEach(r=>riesgos.push(`<strong>${r.col}</strong> muestra deterioro incipiente (${arrow(r.pct)}${FMT.pct(r.pct)}); conviene monitorear en el siguiente corte.`));
+  if(!riesgos.length)riesgos.push('No se detectaron riesgos materiales según los umbrales configurados.');
+
+  // Recomendaciones
+  const recos=[];
+  risks.forEach(r=>{
+    if(r.fmt==='money')recos.push(`Revisar la cadena comercial detrás de <strong>${r.col}</strong>: pricing, mix y volumen, priorizando acciones de recuperación de ingreso en las próximas 2 semanas.`);
+    else if(r.fmt==='pct')recos.push(`Diagnosticar la causa raíz de la baja en <strong>${r.col}</strong> y establecer un plan correctivo con responsable y fecha objetivo.`);
+    else recos.push(`Definir un plan de acción para revertir la caída en <strong>${r.col}</strong>, con metas semanales y seguimiento.`);
+  });
+  wins.forEach(r=>recos.push(`Capitalizar el avance en <strong>${r.col}</strong>: documentar qué funcionó y replicarlo en períodos siguientes.`));
+  if(!recos.length)recos.push('Mantener la operación actual y reforzar el monitoreo de los indicadores cercanos a sus umbrales.');
+
+  return {resumen,hallazgos,variaciones,riesgos,recos,
+    counts:{wins:wins.length,risks:risks.length,watch:watch.length,ok:ok.length}};
+}
+
+// ---------- RENDER ----------
+function renderReport(){
+  const R=REPORT;
+  $('#rTitle').textContent=R.title;
+  $('#rMeta').textContent=`${R.client} · ${R.curPeriod} vs ${R.basePeriod} · Filtro: ${R.filterText}`;
+
+  const kc=$('#kpiCards');kc.innerHTML='';
+  R.results.forEach(r=>{
+    const cls=r.abs===0?'flat':r.good?'up':'down';
+    const ar=r.abs===0?'→':r.pct>0?'↑':'↓';
+    kc.innerHTML+=`<div class="kpi"><div class="name">${r.col}</div>
+      <div class="val">${r.fmtCur}</div>
+      <span class="delta ${cls}">${ar} ${FMT.pct(Math.abs(r.pct))}</span></div>`;
+  });
+
+  renderNarrative();
+  drawChart();
+  $('#aiStatus').style.display='none';
+  $('#card-report').classList.remove('hidden');
+  $('#card-export').classList.remove('hidden');
+  setStep(3);
+  $('#card-report').scrollIntoView({behavior:'smooth'});
+  setTimeout(()=>setStep(4),600);
+}
+
+function renderNarrative(){
+  const n=REPORT.narrative;
+  const tag=REPORT.aiUsed
+    ? `<span class="srctag ai">✨ Redactado por IA${REPORT.industry?` · ${escHtml(REPORT.industry)}`:''}</span>`
+    : `<span class="srctag rule">Generado por reglas</span>`;
+  $('#narrative').innerHTML=`
+    ${tag}
+    <h3>Resumen ejecutivo</h3><p>${n.resumen}</p>
+    <h3>Principales hallazgos</h3><ul>${n.hallazgos.map(h=>`<li>${h}</li>`).join('')}</ul>
+    <h3>Análisis de variaciones</h3><ul>${n.variaciones.map(v=>`<li>${v}</li>`).join('')}</ul>
+    <h3>Riesgos</h3><ul>${n.riesgos.map(v=>`<li>${v}</li>`).join('')}</ul>
+    <h3>Recomendaciones</h3><ul>${n.recos.map(v=>`<li>${v}</li>`).join('')}</ul>`;
+}
+
+function drawChart(){
+  if(CHART)CHART.destroy();
+  const R=REPORT;
+  const top=[...R.results].sort((a,b)=>Math.abs(b.pct)-Math.abs(a.pct)).slice(0,3);
+  CHART=new Chart($('#chart'),{
+    type:'line',
+    data:{labels:R.periods,datasets:top.map((r,i)=>({
+      label:r.col,data:r.series,borderColor:['#1a8a6b','#b8860b','#c0392b'][i],
+      backgroundColor:'transparent',tension:.3,borderWidth:2,pointRadius:3
+    }))},
+    options:{responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{position:'bottom',labels:{font:{size:12}}}},
+      scales:{y:{grid:{color:'#eee'}},x:{grid:{display:false}}}}
+  });
+}
+
+function setStep(n){[1,2,3,4].forEach(i=>$('#s'+i).classList.toggle('active',i<=n))}
+
+// ---------- EXPORT: WORD ----------
+$('#exWord').onclick=async function(){
+  const btn=this;busy(btn,true);
+  const {Document,Packer,Paragraph,TextRun,HeadingLevel,Table,TableRow,TableCell,WidthType,AlignmentType,BorderStyle}=docx;
+  const R=REPORT,n=R.narrative;
+  const head=(t)=>new Paragraph({text:t,heading:HeadingLevel.HEADING_1,spacing:{before:240,after:120}});
+  const bul=(t)=>new Paragraph({text:stripTags(t),bullet:{level:0},spacing:{after:60}});
+
+  // tabla KPIs
+  const rowsT=[new TableRow({children:['Indicador','Actual','Comparativo','Variación','Estado'].map(h=>
+    new TableCell({children:[new Paragraph({children:[new TextRun({text:h,bold:true,color:'FFFFFF'})]})],
+      shading:{fill:'0d3b2a'},width:{size:20,type:WidthType.PERCENTAGE}}))})];
+  R.results.forEach(r=>{
+    const st=r.status==='win'?'Avance':r.status==='risk'?'Riesgo':r.status==='watch'?'Vigilar':'Estable';
+    rowsT.push(new TableRow({children:[r.col,r.fmtCur,r.fmtBase,(r.pct>0?'+':'')+FMT.pct(r.pct),st]
+      .map(c=>new TableCell({children:[new Paragraph(String(c))]}))}));
+  });
+
+  const doc=new Document({sections:[{children:[
+    new Paragraph({text:R.title,heading:HeadingLevel.TITLE,alignment:AlignmentType.CENTER}),
+    new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:`${R.client} · ${R.curPeriod}`,color:'6e6e73'})]}),
+    new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:`Comparado contra ${R.cmpLabel} (${R.basePeriod})`,italics:true,size:18,color:'6e6e73'})]}),
+    ...(R.industry?[new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:`Industria: ${R.industry}`+(R.aiUsed?' · Análisis asistido por IA':''),size:16,italics:true,color:'1a8a6b'})]})]:[]),
+    new Paragraph({alignment:AlignmentType.CENTER,children:[new TextRun({text:`Filtro aplicado: ${R.filterText}`,size:16,color:'9e9e9e'})],spacing:{after:240}}),
+    head('Resumen ejecutivo'),new Paragraph(stripTags(n.resumen)),
+    head('Indicadores clave'),new Table({rows:rowsT,width:{size:100,type:WidthType.PERCENTAGE}}),
+    head('Principales hallazgos'),...n.hallazgos.map(bul),
+    head('Análisis de variaciones'),...n.variaciones.map(bul),
+    head('Riesgos'),...n.riesgos.map(bul),
+    head('Recomendaciones'),...n.recos.map(bul),
+    new Paragraph({children:[new TextRun({text:'Elaborado por '+R.client+' · Información confidencial',size:16,color:'9e9e9e'})],spacing:{before:360}})
+  ]}]});
+  const blob=await Packer.toBlob(doc);
+  dl(blob,slug(R.title)+'.docx');busy(btn,false,'📄 Word (.docx)');
+};
+
+// ---------- EXPORT: PPTX ----------
+$('#exPpt').onclick=function(){
+  const btn=this;busy(btn,true);
+  const R=REPORT,n=R.narrative;
+  const p=new PptxGenJS();p.layout='LAYOUT_WIDE';
+  const GREEN='0d3b2a',ACCENT='1a8a6b',CREAM='f5f1e8';
+  // portada
+  let s=p.addSlide();s.background={color:GREEN};
+  s.addText(R.title,{x:0.6,y:2,w:12,h:1,fontSize:40,bold:true,color:'FFFFFF'});
+  s.addText(`${R.client}  ·  ${R.curPeriod}`,{x:0.6,y:3.1,w:12,h:0.5,fontSize:18,color:CREAM});
+  s.addText(`Filtro: ${R.filterText}`,{x:0.6,y:3.7,w:12,h:0.4,fontSize:13,color:CREAM});
+  if(R.industry)s.addText(`Industria: ${R.industry}`+(R.aiUsed?'  ·  IA':''),{x:0.6,y:4.15,w:12,h:0.4,fontSize:13,color:CREAM});
+  // resumen
+  s=p.addSlide();s.addText('Resumen ejecutivo',{x:0.6,y:0.4,w:12,h:0.6,fontSize:26,bold:true,color:GREEN});
+  s.addText(stripTags(n.resumen),{x:0.6,y:1.3,w:12,h:2,fontSize:16,color:'333333'});
+  // KPIs en tarjetas
+  s=p.addSlide();s.addText('Indicadores clave',{x:0.6,y:0.4,w:12,h:0.6,fontSize:26,bold:true,color:GREEN});
+  R.results.slice(0,8).forEach((r,i)=>{
+    const col=i%4,row=Math.floor(i/4);
+    const x=0.6+col*3.05,y=1.4+row*1.8;
+    const dc=r.abs===0?'6e6e73':r.good?ACCENT:'c0392b';
+    s.addShape(p.ShapeType.roundRect,{x,y,w:2.85,h:1.6,fill:{color:'FAFAF8'},line:{color:'E5E2DB'},rectRadius:0.1});
+    s.addText(r.col,{x:x+0.15,y:y+0.1,w:2.55,h:0.4,fontSize:11,color:'6e6e73'});
+    s.addText(r.fmtCur,{x:x+0.15,y:y+0.45,w:2.55,h:0.5,fontSize:22,bold:true,color:'1a1a1a'});
+    s.addText(`${r.pct>0?'+':''}${FMT.pct(r.pct)}`,{x:x+0.15,y:y+1.0,w:2.55,h:0.4,fontSize:14,bold:true,color:dc});
+  });
+  // hallazgos / riesgos / recos
+  const listSlide=(title,items,color)=>{
+    const sl=p.addSlide();
+    sl.addText(title,{x:0.6,y:0.4,w:12,h:0.6,fontSize:26,bold:true,color});
+    sl.addText(items.map(t=>({text:stripTags(t),options:{bullet:true,fontSize:15,color:'333333',paraSpaceAfter:8}})),
+      {x:0.6,y:1.3,w:12,h:5});
+  };
+  listSlide('Principales hallazgos',n.hallazgos,GREEN);
+  listSlide('Riesgos',n.riesgos,'c0392b');
+  listSlide('Recomendaciones',n.recos,ACCENT);
+  p.writeFile({fileName:slug(R.title)+'.pptx'}).then(()=>busy(btn,false,'📽️ PowerPoint (.pptx)'));
+};
+
+// ---------- EXPORT: PDF ----------
+$('#exPdf').onclick=function(){
+  const btn=this;busy(btn,true);
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'pt',format:'a4'});
+  const R=REPORT,n=R.narrative;const W=595,M=48;let y=70;
+  const txt=(t,size,color,bold,indent=0)=>{
+    doc.setFontSize(size);doc.setTextColor(color);doc.setFont('helvetica',bold?'bold':'normal');
+    const lines=doc.splitTextToSize(stripTags(t),W-M*2-indent);
+    lines.forEach(l=>{if(y>790){doc.addPage();y=60}doc.text(l,M+indent,y);y+=size*1.35});
+  };
+  const h=(t)=>{y+=10;txt(t,15,'#0d3b2a',true);y+=2};
+  const bul=(t)=>{if(y>780){doc.addPage();y=60}doc.setTextColor('#1a8a6b');doc.text('•',M,y);txt(t,11,'#333',false,16)};
+  doc.setFillColor(13,59,42);doc.rect(0,0,W,104,'F');
+  doc.setTextColor('#fff');doc.setFontSize(24);doc.setFont('helvetica','bold');doc.text(R.title,M,48);
+  doc.setFontSize(11);doc.setFont('helvetica','normal');doc.setTextColor('#f5f1e8');
+  doc.text(`${R.client}  ·  ${R.curPeriod}  ·  vs ${R.cmpLabel}`,M,70);
+  doc.setFontSize(9);
+  doc.text(`Filtro: ${stripTags(R.filterText)}${R.industry?'   ·   Industria: '+stripTags(R.industry):''}`,M,88);
+  y=130;
+  h('Resumen ejecutivo');txt(n.resumen,11,'#333');
+  h('Principales hallazgos');n.hallazgos.forEach(bul);
+  h('Análisis de variaciones');n.variaciones.forEach(bul);
+  h('Riesgos');n.riesgos.forEach(bul);
+  h('Recomendaciones');n.recos.forEach(bul);
+  y+=20;txt('Información confidencial · '+R.client,9,'#9e9e9e');
+  doc.save(slug(R.title)+'.pdf');busy(btn,false,'📕 PDF');
+};
+
+// ---------- EXPORT: LaTeX ----------
+$('#exTex').onclick=function(){
+  const R=REPORT,n=R.narrative;
+  const esc=t=>stripTags(t).replace(/([&%$#_{}])/g,'\\$1').replace(/~/g,'\\textasciitilde ');
+  const items=arr=>arr.map(t=>'  \\item '+esc(t)).join('\n');
+  let rows=R.results.map(r=>{
+    const st=r.status==='win'?'Avance':r.status==='risk'?'Riesgo':r.status==='watch'?'Vigilar':'Estable';
+    return `${esc(r.col)} & ${esc(r.fmtCur)} & ${esc(r.fmtBase)} & ${(r.pct>0?'+':'')+FMT.pct(r.pct)} & ${st} \\\\`;
+  }).join('\n');
+  const tex=`\\documentclass[11pt]{article}
+\\usepackage[utf8]{inputenc}
+\\usepackage[spanish]{babel}
+\\usepackage[margin=2.3cm]{geometry}
+\\usepackage{booktabs}
+\\usepackage{xcolor}
+\\usepackage{enumitem}
+\\definecolor{tmgreen}{HTML}{0D3B2A}
+\\title{\\textbf{\\color{tmgreen}${esc(R.title)}}}
+\\author{${esc(R.client)}}
+\\date{${esc(R.curPeriod)} \\quad\\textit{vs ${esc(R.cmpLabel)}} \\\\[4pt] {\\small Filtro: ${esc(R.filterText)}${R.industry?` \\quad Industria: ${esc(R.industry)}`:''}}}
+\\begin{document}
+\\maketitle
+
+\\section*{Resumen ejecutivo}
+${esc(n.resumen)}
+
+\\section*{Indicadores clave}
+\\begin{center}
+\\begin{tabular}{lrrrl}
+\\toprule
+\\textbf{Indicador} & \\textbf{Actual} & \\textbf{Comparativo} & \\textbf{Variaci\\'on} & \\textbf{Estado} \\\\
+\\midrule
+${rows}
+\\bottomrule
+\\end{tabular}
+\\end{center}
+
+\\section*{Principales hallazgos}
+\\begin{itemize}[leftmargin=*]
+${items(n.hallazgos)}
+\\end{itemize}
+
+\\section*{An\\'alisis de variaciones}
+\\begin{itemize}[leftmargin=*]
+${items(n.variaciones)}
+\\end{itemize}
+
+\\section*{Riesgos}
+\\begin{itemize}[leftmargin=*]
+${items(n.riesgos)}
+\\end{itemize}
+
+\\section*{Recomendaciones}
+\\begin{itemize}[leftmargin=*]
+${items(n.recos)}
+\\end{itemize}
+
+\\vfill
+\\noindent\\textit{\\small Informaci\\'on confidencial · ${esc(R.client)}}
+\\end{document}`;
+  dl(new Blob([tex],{type:'text/plain'}),slug(R.title)+'.tex');
+};
+
+// ---------- UTILS ----------
+function stripTags(s){return String(s).replace(/<[^>]+>/g,'')}
+function slug(s){return stripTags(s).toLowerCase().replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||'reporte'}
+function dl(blob,name){const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=name;a.click();URL.revokeObjectURL(a.href)}
+function busy(btn,on,label){btn.disabled=on;if(on)btn.innerHTML='<span class="spin"></span> Generando…';else btn.innerHTML=label}
+document.addEventListener('click',()=>document.querySelectorAll('.fdrop.open').forEach(d=>d.classList.remove('open')));
+
+/* ===== Marketplace: navbar, planes y modal ===== */
+$('#navUpgrade').onclick=()=>document.getElementById('planes').scrollIntoView({behavior:'smooth'});
+$('#modalClose').onclick=closeUpgrade;
+$('#upgradeModal').onclick=e=>{if(e.target.id==='upgradeModal')closeUpgrade();};
+function notifyDevPayments(){
+  // Placeholder del futuro motor de pagos (Stripe / Mercado Pago / Conekta).
+  alert('Estamos en fase beta: la contratación en línea aún no está disponible.\n\nDéjanos tus datos y te avisamos en cuanto se habilite:\ncontacto@iama.mx');
+}
+$('#modalBuy').onclick=notifyDevPayments;
+document.querySelectorAll('[data-buy]').forEach(b=>b.onclick=()=>{
+  if(b.dataset.buy==='ent'){alert('Plan Empresarial: escríbenos a contacto@iama.mx para una propuesta a la medida.');}
+  else{notifyDevPayments();}
+});
+
+// Inicializar contador al cargar
+refreshUsageUI();
+</script>
+</body>
+</html>

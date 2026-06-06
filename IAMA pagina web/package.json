@@ -1,0 +1,11 @@
+{
+  "name": "iama-reportes",
+  "version": "0.9.0-beta",
+  "description": "I.A.ma — Generador de Reportes Ejecutivos con IA",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  }
+}
