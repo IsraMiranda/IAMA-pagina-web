@@ -38,7 +38,6 @@ iama-app/
 npm i -g vercel
 vercel dev          # corre frontend + funciones en http://localhost:3000
 ```
-Crea un archivo `.env.local` con `ANTHROPIC_API_KEY=sk-ant-...` (no se sube a Git).
 
 ## Estado actual (beta)
 
